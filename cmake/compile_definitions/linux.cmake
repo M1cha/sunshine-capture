@@ -234,11 +234,16 @@ endif ()
 
 list(APPEND PLATFORM_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/platform/linux/publish.cpp"
-        "${CMAKE_SOURCE_DIR}/src/platform/linux/graphics.h"
-        "${CMAKE_SOURCE_DIR}/src/platform/linux/graphics.cpp"
         "${CMAKE_SOURCE_DIR}/src/platform/linux/misc.h"
         "${CMAKE_SOURCE_DIR}/src/platform/linux/misc.cpp"
-        "${CMAKE_SOURCE_DIR}/src/platform/linux/audio.cpp"
+        "${CMAKE_SOURCE_DIR}/src/platform/linux/audio.cpp")
+
+if (${SUNSHINE_ENABLE_EGL})
+    add_compile_definitions(SUNSHINE_BUILD_EGL)
+
+    list(APPEND PLATFORM_TARGET_FILES
+        "${CMAKE_SOURCE_DIR}/src/platform/linux/graphics.h"
+        "${CMAKE_SOURCE_DIR}/src/platform/linux/graphics.cpp"
         "${CMAKE_SOURCE_DIR}/third-party/glad/src/egl.c"
         "${CMAKE_SOURCE_DIR}/third-party/glad/src/gl.c"
         "${CMAKE_SOURCE_DIR}/third-party/glad/include/EGL/eglplatform.h"
@@ -246,11 +251,12 @@ list(APPEND PLATFORM_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/third-party/glad/include/glad/gl.h"
         "${CMAKE_SOURCE_DIR}/third-party/glad/include/glad/egl.h")
 
+    include_directories(
+        SYSTEM
+        "${CMAKE_SOURCE_DIR}/third-party/glad/include")
+endif()
+
 list(APPEND PLATFORM_LIBRARIES
         dl
         pulse
         pulse-simple)
-
-include_directories(
-        SYSTEM
-        "${CMAKE_SOURCE_DIR}/third-party/glad/include")

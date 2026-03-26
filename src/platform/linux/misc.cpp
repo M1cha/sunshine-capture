@@ -27,13 +27,16 @@
 #include <unistd.h>
 
 // local includes
-#include "graphics.h"
 #include "misc.h"
 #include "src/config.h"
 #include "src/entry_handler.h"
 #include "src/logging.h"
 #include "src/platform/common.h"
 #include "vaapi.h"
+
+#ifdef SUNSHINE_BUILD_EGL
+#include "graphics.h"
+#endif
 
 #ifdef __GNUC__
   #define SUNSHINE_GNUC_EXTENSION __extension__
@@ -897,8 +900,10 @@ namespace platf {
     // https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/30039
     set_env("AMD_DEBUG", "lowlatencyenc");
 
+#ifdef SUNSHINE_BUILD_EGL
     // These are allowed to fail.
     gbm::init();
+#endif
 
     window_system = window_system_e::NONE;
 #ifdef SUNSHINE_BUILD_WAYLAND
@@ -952,9 +957,11 @@ namespace platf {
       return nullptr;
     }
 
+#ifdef SUNSHINE_BUILD_EGL
     if (!gladLoaderLoadEGL(EGL_NO_DISPLAY) || !eglGetPlatformDisplay) {
       BOOST_LOG(warning) << "Couldn't load EGL library"sv;
     }
+#endif
 
     return std::make_unique<deinit_t>();
   }
