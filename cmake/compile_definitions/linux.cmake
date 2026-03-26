@@ -256,6 +256,10 @@ if (${SUNSHINE_ENABLE_EGL})
         "${CMAKE_SOURCE_DIR}/third-party/glad/include")
 endif()
 
+if (${SUNSHINE_ENABLE_RKMPP})
+    add_compile_definitions(SUNSHINE_BUILD_RKMPP)
+endif()
+
 list(APPEND PLATFORM_LIBRARIES
         dl
         pulse

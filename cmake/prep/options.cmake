@@ -67,4 +67,6 @@ elseif(UNIX)  # Linux
 
     option(SUNSHINE_ENABLE_EGL
             "Enable EGL if available." ON)
+    option(SUNSHINE_ENABLE_RKMPP
+            "Enable Rockchip MPP encoder." OFF)
 endif()

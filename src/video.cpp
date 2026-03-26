@@ -122,6 +122,7 @@ namespace video {
   util::Either<avcodec_buffer_t, int> vaapi_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *);
   util::Either<avcodec_buffer_t, int> cuda_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *);
   util::Either<avcodec_buffer_t, int> vt_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *);
+  util::Either<avcodec_buffer_t, int> rkmpp_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *);
 
   class avcodec_software_encode_device_t: public platf::avcodec_encode_device_t {
   public:
@@ -1024,6 +1025,58 @@ namespace video {
   };
 #endif
 
+#ifdef SUNSHINE_BUILD_RKMPP
+  encoder_t rkmpp {
+    "rkmpp"sv,
+    std::make_unique<encoder_platform_formats_avcodec>(
+      AV_HWDEVICE_TYPE_RKMPP,
+      AV_HWDEVICE_TYPE_NONE,
+      AV_PIX_FMT_DRM_PRIME,
+      AV_PIX_FMT_NV12,
+      AV_PIX_FMT_NONE,
+      AV_PIX_FMT_NONE,
+      AV_PIX_FMT_NONE,
+      rkmpp_init_avcodec_hardware_input_buffer
+    ),
+    {
+      // Common options
+      {},
+      {},  // SDR-specific options
+      {},  // HDR-specific options
+      {},  // YUV444 SDR-specific options
+      {},  // YUV444 HDR-specific options
+      {},  // Fallback options
+      {},
+    },
+    {
+      // Common options
+      {
+        {"low_delay"s, 1},
+      },
+      {},  // SDR-specific options
+      {},  // HDR-specific options
+      {},  // YUV444 SDR-specific options
+      {},  // YUV444 HDR-specific options
+      {},  // Fallback options
+      "hevc_rkmpp"s,
+    },
+    {
+      // Common options
+      {
+        {"low_delay"s, 1},
+      },
+      {},  // SDR-specific options
+      {},  // HDR-specific options
+      {},  // YUV444 SDR-specific options
+      {},  // YUV444 HDR-specific options
+      {},  // Fallback options
+      "h264_rkmpp"s,
+    },
+    // The way we currently handle V4L2 buffers wouldn't be safe with parallel encoding.
+    LIMITED_GOP_SIZE | NO_RC_BUF_LIMIT
+  };
+#endif
+
   static const std::vector<encoder_t *> encoders {
 #ifndef __APPLE__
     &nvenc,
@@ -1037,6 +1090,9 @@ namespace video {
 #endif
 #ifdef __APPLE__
     &videotoolbox,
+#endif
+#ifdef SUNSHINE_BUILD_RKMPP
+    &rkmpp,
 #endif
     &software
   };
@@ -2869,6 +2925,23 @@ namespace video {
     return hw_device_buf;
   }
 
+#ifdef SUNSHINE_BUILD_RKMPP
+  util::Either<avcodec_buffer_t, int> rkmpp_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *encode_device) {
+    avcodec_buffer_t hw_device_buf;
+
+    auto render_device = config::video.adapter_name.empty() ? nullptr : config::video.adapter_name.c_str();
+
+    auto status = av_hwdevice_ctx_create(&hw_device_buf, AV_HWDEVICE_TYPE_RKMPP, render_device, nullptr, 0);
+    if (status < 0) {
+      char string[AV_ERROR_MAX_STRING_SIZE];
+      BOOST_LOG(error) << "Failed to create a RKMPP device: "sv << av_make_error_string(string, AV_ERROR_MAX_STRING_SIZE, status);
+      return -1;
+    }
+
+    return hw_device_buf;
+  }
+#endif
+
 #ifdef _WIN32
 }
 
@@ -2946,6 +3019,10 @@ namespace video {
         return platf::mem_type_e::system;
       case AV_HWDEVICE_TYPE_VIDEOTOOLBOX:
         return platf::mem_type_e::videotoolbox;
+#ifdef SUNSHINE_BUILD_RKMPP
+      case AV_HWDEVICE_TYPE_RKMPP:
+        return platf::mem_type_e::rkmpp;
+#endif
       default:
         return platf::mem_type_e::unknown;
     }

@@ -232,6 +232,9 @@ namespace platf {
     dxgi,  ///< DXGI
     cuda,  ///< CUDA
     videotoolbox,  ///< VideoToolbox
+#ifdef SUNSHINE_BUILD_RKMPP
+    rkmpp,  ///< RKMPP
+#endif
     unknown  ///< Unknown
   };
 
