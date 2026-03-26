@@ -1267,6 +1267,13 @@ namespace video {
     auto pull_free_image_callback = [&](std::shared_ptr<platf::img_t> &img_out) -> bool {
       img_out.reset();
       while (capture_ctx_queue->running()) {
+        // notify about unused
+        for (const auto &img : imgs) {
+          if (img && img.use_count() == 1 && img->wants_unused_notify) {
+            img->notify_unused();
+            img->wants_unused_notify = false;
+          }
+        }
         // pick first allocated but unused
         for (auto it = imgs.begin(); it != imgs.end(); it++) {
           if (*it && it->use_count() == 1) {
@@ -2284,6 +2291,12 @@ namespace video {
       };
 
       auto pull_free_image_callback = [&img](std::shared_ptr<platf::img_t> &img_out) -> bool {
+        // notify about unused
+        if (img.use_count() == 1 && img->wants_unused_notify) {
+          img->notify_unused();
+          img->wants_unused_notify = false;
+        }
+
         img_out = img;
         img_out->frame_timestamp.reset();
         return true;

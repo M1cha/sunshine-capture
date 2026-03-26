@@ -382,6 +382,9 @@ namespace platf {
 
     std::optional<std::chrono::steady_clock::time_point> frame_timestamp;
 
+    bool wants_unused_notify;
+    virtual void notify_unused() {}
+
     virtual ~img_t() = default;
   };
 
