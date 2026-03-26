@@ -64,6 +64,8 @@ elseif(UNIX)  # Linux
             "Enable building wayland specific code." ON)
     option(SUNSHINE_ENABLE_X11
             "Enable X11 grab if available." ON)
+    option(SUNSHINE_ENABLE_V4L2
+            "Enable V4L2 grab." OFF)
 
     option(SUNSHINE_ENABLE_EGL
             "Enable EGL if available." ON)

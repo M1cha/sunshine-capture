@@ -73,7 +73,7 @@ if(CUDA_FOUND)
 endif()
 
 # libdrm is required for both DRM (KMS) and Wayland
-if(${SUNSHINE_ENABLE_DRM} OR ${SUNSHINE_ENABLE_WAYLAND})
+if(${SUNSHINE_ENABLE_DRM} OR ${SUNSHINE_ENABLE_WAYLAND} OR ${SUNSHINE_ENABLE_V4L2})
     find_package(LIBDRM REQUIRED)
 else()
     set(LIBDRM_FOUND OFF)
@@ -164,12 +164,23 @@ if(X11_FOUND)
             "${CMAKE_SOURCE_DIR}/src/platform/linux/x11grab.cpp")
 endif()
 
-if(NOT ${CUDA_FOUND}
-        AND NOT ${WAYLAND_FOUND}
-        AND NOT ${X11_FOUND}
-        AND NOT (${LIBDRM_FOUND} AND ${LIBCAP_FOUND})
-        AND NOT ${LIBVA_FOUND})
-    message(FATAL_ERROR "Couldn't find either cuda, wayland, x11, (libdrm and libcap), or libva")
+# v4l2
+if(${SUNSHINE_ENABLE_V4L2})
+    pkg_check_modules(LIBRGA librga)
+    if(NOT LIBRGA_FOUND)
+        message(FATAL_ERROR "Couldn't find librga")
+    endif()
+
+    include_directories(${LIBRGA_INCLUDE_DIRS})
+    link_directories(${LIBRGA_LIBRARY_DIRS})
+    list(APPEND SUNSHINE_EXTERNAL_LIBRARIES ${LIBRGA_LIBRARIES})
+
+    add_compile_definitions(SUNSHINE_BUILD_V4L2)
+    list(APPEND PLATFORM_TARGET_FILES
+            "${CMAKE_SOURCE_DIR}/src/platform/linux/v4l2grab.h"
+            "${CMAKE_SOURCE_DIR}/src/platform/linux/v4l2grab.cpp"
+            "${CMAKE_SOURCE_DIR}/src/platform/linux/rkmpp.cpp"
+            "${CMAKE_SOURCE_DIR}/src/platform/linux/rkmpp.cpp")
 endif()
 
 # tray icon

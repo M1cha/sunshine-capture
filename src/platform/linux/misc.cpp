@@ -790,6 +790,9 @@ namespace platf {
 #ifdef SUNSHINE_BUILD_X11
       X11,  ///< X11
 #endif
+#ifdef SUNSHINE_BUILD_V4L2
+      V4L2,  ///< V4L2
+#endif
       MAX_FLAGS  ///< The maximum number of flags
     };
   }  // namespace source
@@ -832,6 +835,15 @@ namespace platf {
   }
 #endif
 
+#ifdef SUNSHINE_BUILD_V4L2
+  std::vector<std::string> v4l2_display_names();
+  std::shared_ptr<display_t> v4l2_display(mem_type_e hwdevice_type, const std::string &display_name, const video::config_t &config);
+
+  bool verify_v4l2() {
+    return !v4l2_display_names().empty();
+  }
+#endif
+
   std::vector<std::string> display_names(mem_type_e hwdevice_type) {
 #ifdef SUNSHINE_BUILD_CUDA
     // display using NvFBC only supports mem_type_e::cuda
@@ -854,6 +866,11 @@ namespace platf {
       return x11_display_names();
     }
 #endif
+#ifdef SUNSHINE_BUILD_V4L2
+    if (sources[source::V4L2]) {
+      return v4l2_display_names();
+    }
+#endif
     return {};
   }
 
@@ -867,6 +884,12 @@ namespace platf {
   }
 
   std::shared_ptr<display_t> display(mem_type_e hwdevice_type, const std::string &display_name, const video::config_t &config) {
+#ifdef SUNSHINE_BUILD_V4L2
+    if (sources[source::V4L2]) {
+      BOOST_LOG(info) << "Screencasting with V4L2's protocol"sv;
+      return v4l2_display(hwdevice_type, display_name, config);
+    }
+#endif
 #ifdef SUNSHINE_BUILD_CUDA
     if (sources[source::NVFBC] && hwdevice_type == mem_type_e::cuda) {
       BOOST_LOG(info) << "Screencasting with NvFBC"sv;
@@ -932,6 +955,13 @@ namespace platf {
     if ((config::video.capture.empty() && sources.none()) || config::video.capture == "wlr") {
       if (verify_wl()) {
         sources[source::WAYLAND] = true;
+      }
+    }
+#endif
+#ifdef SUNSHINE_BUILD_V4L2
+    if ((config::video.capture.empty() && sources.none()) || config::video.capture == "v4l2") {
+      if (verify_v4l2()) {
+        sources[source::V4L2] = true;
       }
     }
 #endif
