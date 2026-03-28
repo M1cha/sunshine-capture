@@ -440,6 +440,38 @@ namespace platf {
         return monitor_name;
       }
 
+      bool is_source(const std::string &name) {
+        bool is_source = false;
+        auto alarm = safe::make_alarm<int>();
+
+        if (name.empty()) {
+          return false;
+        }
+
+        cb_t<pa_source_info *> source_f = [&](ctx_t::pointer ctx, const pa_source_info *source_info, int eol) {
+          if (!source_info) {
+            if (!eol) {
+              BOOST_LOG(error) << "Couldn't get pulseaudio source info for ["sv << name
+                               << "]: "sv << pa_strerror(pa_context_errno(ctx));
+              alarm->ring(-1);
+            }
+
+            alarm->ring(0);
+            return;
+          }
+
+          is_source = true;
+        };
+
+        op_t sink_op {pa_context_get_source_info_by_name(ctx.get(), name.c_str(), cb<pa_source_info *>, &source_f)};
+
+        alarm->wait();
+
+        BOOST_LOG(info) << "Configured device is a source: "sv << name;
+
+        return is_source;
+      }
+
       std::unique_ptr<mic_t> microphone(const std::uint8_t *mapping, int channels, std::uint32_t sample_rate, std::uint32_t frame_size) override {
         // Sink choice priority:
         // 1. Config sink
@@ -456,7 +488,9 @@ namespace platf {
           sink_name = get_default_sink_name();
         }
 
-        return ::platf::microphone(mapping, channels, sample_rate, frame_size, get_monitor_name(sink_name));
+        auto source_name = is_source(sink_name) ? sink_name : get_monitor_name(sink_name);
+
+        return ::platf::microphone(mapping, channels, sample_rate, frame_size, source_name);
       }
 
       bool is_sink_available(const std::string &sink) override {
@@ -465,6 +499,10 @@ namespace platf {
       }
 
       int set_sink(const std::string &sink) override {
+        if (is_source(config::audio.sink)) {
+          return 0;
+        }
+
         auto alarm = safe::make_alarm<int>();
 
         BOOST_LOG(info) << "Setting default sink to: ["sv << sink << "]"sv;
