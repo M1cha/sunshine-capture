@@ -71,4 +71,6 @@ elseif(UNIX)  # Linux
             "Enable EGL if available." ON)
     option(SUNSHINE_ENABLE_RKMPP
             "Enable Rockchip MPP encoder." OFF)
+    option(SUNSHINE_ENABLE_UDCINPUT
+            "Use udcinput instead of inputtino." OFF)
 endif()

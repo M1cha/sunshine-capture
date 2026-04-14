@@ -66,3 +66,7 @@
 	path = third-party/wlr-protocols
 	url = https://github.com/LizardByte-infrastructure/wlr-protocols.git
 	branch = master
+[submodule "third-party/udcinput"]
+	path = third-party/udcinput
+	url = https://github.com/M1cha/udcinput.git
+	branch = main

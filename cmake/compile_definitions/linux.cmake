@@ -98,8 +98,10 @@ if(LIBDRM_FOUND AND LIBCAP_FOUND)
     list(APPEND SUNSHINE_DEFINITIONS EGL_NO_X11=1)
 endif()
 
-# evdev
-include(dependencies/libevdev_Sunshine)
+if(NOT SUNSHINE_ENABLE_UDCINPUT)
+    # evdev
+    include(dependencies/libevdev_Sunshine)
+endif()
 
 # vaapi
 if(${SUNSHINE_ENABLE_VAAPI})
@@ -219,20 +221,28 @@ else()
     message(STATUS "Tray icon disabled")
 endif()
 
-# These need to be set before adding the inputtino subdirectory in order for them to be picked up
-set(LIBEVDEV_CUSTOM_INCLUDE_DIR "${EVDEV_INCLUDE_DIR}")
-set(LIBEVDEV_CUSTOM_LIBRARY "${EVDEV_LIBRARY}")
+if(SUNSHINE_ENABLE_UDCINPUT)
+    add_subdirectory("${CMAKE_SOURCE_DIR}/third-party/udcinput")
+    list(APPEND SUNSHINE_EXTERNAL_LIBRARIES udcinput)
+    list(APPEND PLATFORM_TARGET_FILES
+            ${CMAKE_SOURCE_DIR}/src/platform/linux/input/udcinput.h
+            ${CMAKE_SOURCE_DIR}/src/platform/linux/input/udcinput.cpp)
+else()
+    # These need to be set before adding the inputtino subdirectory in order for them to be picked up
+    set(LIBEVDEV_CUSTOM_INCLUDE_DIR "${EVDEV_INCLUDE_DIR}")
+    set(LIBEVDEV_CUSTOM_LIBRARY "${EVDEV_LIBRARY}")
 
-add_subdirectory("${CMAKE_SOURCE_DIR}/third-party/inputtino")
-list(APPEND SUNSHINE_EXTERNAL_LIBRARIES inputtino::libinputtino)
-file(GLOB_RECURSE INPUTTINO_SOURCES
-        ${CMAKE_SOURCE_DIR}/src/platform/linux/input/inputtino*.h
-        ${CMAKE_SOURCE_DIR}/src/platform/linux/input/inputtino*.cpp)
-list(APPEND PLATFORM_TARGET_FILES ${INPUTTINO_SOURCES})
+    add_subdirectory("${CMAKE_SOURCE_DIR}/third-party/inputtino")
+    list(APPEND SUNSHINE_EXTERNAL_LIBRARIES inputtino::libinputtino)
+    file(GLOB_RECURSE INPUTTINO_SOURCES
+            ${CMAKE_SOURCE_DIR}/src/platform/linux/input/inputtino*.h
+            ${CMAKE_SOURCE_DIR}/src/platform/linux/input/inputtino*.cpp)
+    list(APPEND PLATFORM_TARGET_FILES ${INPUTTINO_SOURCES})
 
-# build libevdev before the libinputtino target
-if(EXTERNAL_PROJECT_LIBEVDEV_USED)
-    add_dependencies(libinputtino libevdev)
+    # build libevdev before the libinputtino target
+    if(EXTERNAL_PROJECT_LIBEVDEV_USED)
+        add_dependencies(libinputtino libevdev)
+    endif()
 endif()
 
 # AppImage and Flatpak

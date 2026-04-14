@@ -203,6 +203,8 @@ namespace config {
 
     bool high_resolution_scrolling;
     bool native_pen_touch;
+
+    std::string udc_name;
   };
 
   namespace flag {
