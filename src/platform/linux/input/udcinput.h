@@ -9,6 +9,7 @@
 
 // local includes
 #include "src/config.h"
+#include "src/globals.h"
 #include "src/logging.h"
 #include "src/platform/common.h"
 #include "src/utility.h"
@@ -24,6 +25,7 @@ namespace platf {
     udcinput::Loop loop;
     gamepad_feedback_msg_t last_rumble;
     gamepad_feedback_msg_t last_rgb_led;
+    thread_pool_util::ThreadPool::task_id_t repeat_task {};
   };
 
   struct input_raw_t {

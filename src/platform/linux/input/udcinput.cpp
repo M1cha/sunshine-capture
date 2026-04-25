@@ -182,6 +182,24 @@ namespace platf {
     raw->gadget.enable(config::input.udc_name.c_str());
   }
 
+  void trysend_update(std::shared_ptr<joypad_state> gamepad, const udcinput_gamepad_state udcinput_state) {
+    if (gamepad->repeat_task) {
+      task_pool.cancel(gamepad->repeat_task);
+      gamepad->repeat_task = nullptr;
+    }
+
+    bool retry = false;
+    std::visit([&retry, gamepad, udcinput_state](auto &&gc) {
+      retry = gc.set_state(udcinput_state);
+    },
+               *gamepad->joypad);
+
+    if (retry) {
+      // 8ms are a little bit less than half the time between USB polls with a 60Hz rate.
+      gamepad->repeat_task = task_pool.pushDelayed(trysend_update, 8ms, gamepad, udcinput_state).task_id;
+    }
+  }
+
   void gamepad_update(input_t &input, int nr, const gamepad_state_t &gamepad_state) {
     auto raw = (input_raw_t *) input.get();
     auto gamepad = raw->gamepads[nr];
@@ -202,11 +220,7 @@ namespace platf {
         .y = gamepad_state.rsY,
       },
     };
-
-    std::visit([gamepad, udcinput_state](auto &&gc) {
-      gc.set_state(udcinput_state);
-    },
-               *gamepad->joypad);
+    trysend_update(gamepad, udcinput_state);
   }
 
   void gamepad_touch(input_t &input, const gamepad_touch_t &touch) {
