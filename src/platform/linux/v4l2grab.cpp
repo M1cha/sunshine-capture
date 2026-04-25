@@ -146,19 +146,6 @@ namespace v4l2 {
       }
       log_v4l_fmt(fmt, "start");
 
-      ret = ioctl(v4lfd, VIDIOC_S_FMT, &fmt);
-      if (ret != 0) {
-        BOOST_LOG(error) << "Failed to set video format"sv;
-        return ret;
-      }
-
-      ret = ioctl(v4lfd, VIDIOC_G_FMT, &fmt);
-      if (ret != 0) {
-        BOOST_LOG(error) << "Failed to get video format"sv;
-        return ret;
-      }
-      log_v4l_fmt(fmt, "final");
-
       uint32_t width_u32;
       uint32_t height_u32;
       uint32_t pixelformat;
