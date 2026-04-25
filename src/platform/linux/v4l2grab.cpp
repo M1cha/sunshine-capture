@@ -48,17 +48,50 @@ namespace v4l2 {
     }
   }
 
+  int format_info(v4l2_format &fmt, uint32_t &width, uint32_t &height, uint32_t &pixelformat) {
+    switch (fmt.type) {
+      case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+        width = fmt.fmt.pix.width;
+        height = fmt.fmt.pix.height;
+        pixelformat = fmt.fmt.pix.pixelformat;
+        break;
+      case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+        if (fmt.fmt.pix_mp.num_planes != 1) {
+          BOOST_LOG(error) << "Unsupported number of planes: " << fmt.fmt.pix_mp.num_planes;
+          return -1;
+        }
+
+        width = fmt.fmt.pix_mp.width;
+        height = fmt.fmt.pix_mp.height;
+        pixelformat = fmt.fmt.pix_mp.pixelformat;
+        break;
+      default:
+        return -1;
+    }
+
+    return 0;
+  }
+
   void log_v4l_fmt(v4l2_format &fmt, std::string prefix) {
+    uint32_t width;
+    uint32_t height;
+    uint32_t pixelformat;
+
+    int ret = format_info(fmt, width, height, pixelformat);
+    if (ret) {
+      return;
+    }
+
     BOOST_LOG(info)
       << "G_FMT(" << prefix << "): width="
-      << fmt.fmt.pix_mp.width
+      << width
       << " height="
-      << fmt.fmt.pix_mp.height
+      << height
       << " 4cc="
-      << (char) (fmt.fmt.pix_mp.pixelformat & 0xff)
-      << (char) ((fmt.fmt.pix_mp.pixelformat >> 8) & 0xff)
-      << (char) ((fmt.fmt.pix_mp.pixelformat >> 16) & 0xff)
-      << (char) ((fmt.fmt.pix_mp.pixelformat >> 24) & 0xff);
+      << (char) (pixelformat & 0xff)
+      << (char) ((pixelformat >> 8) & 0xff)
+      << (char) ((pixelformat >> 16) & 0xff)
+      << (char) ((pixelformat >> 24) & 0xff);
   }
 
   class v4l2_t: public platf::display_t {
@@ -89,13 +122,18 @@ namespace v4l2 {
         BOOST_LOG(error) << "Failed to query capabilities"sv;
         return ret;
       }
-      if (!(caps.capabilities & V4L2_CAP_VIDEO_CAPTURE_MPLANE)) {
-        BOOST_LOG(error) << "Device doesn't support mplane"sv;
+
+      if (caps.capabilities & V4L2_CAP_VIDEO_CAPTURE_MPLANE) {
+        buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+      } else if (caps.capabilities & V4L2_CAP_VIDEO_CAPTURE) {
+        buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+      } else {
+        BOOST_LOG(error) << "Device doesn't support video capture"sv;
         return ret;
       }
 
       v4l2_format fmt = {
-        .type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+        .type = buf_type,
       };
       ret = ioctl(v4lfd, VIDIOC_G_FMT, &fmt);
       if (ret != 0) {
@@ -117,26 +155,28 @@ namespace v4l2 {
       }
       log_v4l_fmt(fmt, "final");
 
-      if (fmt.fmt.pix_mp.num_planes != 1) {
-        BOOST_LOG(error) << "Unsupported number of planes: " << fmt.fmt.pix_mp.num_planes;
+      uint32_t width_u32;
+      uint32_t height_u32;
+      uint32_t pixelformat;
+      ret = format_info(fmt, width_u32, height_u32, pixelformat);
+      if (ret != 0) {
         return ret;
       }
 
-      uint32_t rkformat = fourcc_rk_from_v4l2(fmt.fmt.pix_mp.pixelformat);
+      uint32_t rkformat = fourcc_rk_from_v4l2(pixelformat);
       if (rkformat == RK_FORMAT_UNKNOWN) {
         BOOST_LOG(error) << "Unsupported V4L2 pixel format";
         return ret;
       }
 
-      width = fmt.fmt.pix_mp.width;
-      height = fmt.fmt.pix_mp.height;
-
+      width = width_u32;
+      height = height_u32;
       this->env_width = width;
       this->env_height = height;
 
       v4l2_requestbuffers req = {
         .count = 3,
-        .type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+        .type = buf_type,
         .memory = V4L2_MEMORY_DMABUF,
       };
       ret = ioctl(v4lfd, VIDIOC_REQBUFS, &req);
@@ -152,7 +192,17 @@ namespace v4l2 {
       }
 
       for (uint32_t i = 0; i < req.count; i += 1) {
-        uint32_t sizeimage = fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
+        uint32_t sizeimage;
+        switch (buf_type) {
+          case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+            sizeimage = fmt.fmt.pix.sizeimage;
+            break;
+          case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+            sizeimage = fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
+            break;
+          default:
+            return -1;
+        }
 
         dma_heap_allocation_data alloc_data = {
           .len = sizeimage,
@@ -188,13 +238,23 @@ namespace v4l2 {
         }};
         v4l2_buffer buf = {
           .index = i,
-          .type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+          .type = buf_type,
           .memory = V4L2_MEMORY_DMABUF,
-          .m = {
-            .planes = planes,
-          },
-          .length = ARRAY_SIZE(planes),
+          .length = buffers[i].sizeimage,
         };
+
+        switch (buf_type) {
+          case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+            buf.m.fd = buffers[i].dmafd;
+            buf.length = buffers[i].sizeimage;
+            break;
+          case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+            buf.m.planes = planes;
+            buf.length = ARRAY_SIZE(planes);
+            break;
+          default:
+            return -1;
+        }
 
         ret = ioctl(v4lfd, VIDIOC_QBUF, &buf);
         if (ret != 0) {
@@ -203,8 +263,8 @@ namespace v4l2 {
         }
       }
 
-      enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-      ret = ioctl(v4lfd, VIDIOC_STREAMON, &type);
+      enum v4l2_buf_type buf_type_tmp = buf_type;
+      ret = ioctl(v4lfd, VIDIOC_STREAMON, &buf_type_tmp);
       if (ret != 0) {
         BOOST_LOG(error) << "Failed to enable streaming"sv;
         return ret;
@@ -299,13 +359,14 @@ namespace v4l2 {
 
       v4l2_plane planes[1];
       v4l2_buffer buf = {
-        .type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-        .memory = V4L2_MEMORY_MMAP,
-        .m = {
-          .planes = planes,
-        },
-        .length = ARRAY_SIZE(planes),
+        .type = buf_type,
       };
+
+      if (buf_type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+        buf.m.planes = planes;
+        buf.length = ARRAY_SIZE(planes);
+      }
+
       int ret = ioctl(v4lfd, VIDIOC_DQBUF, &buf);
       if (ret != 0) {
         BOOST_LOG(error) << "Failed to dequeue buffer"sv;
@@ -317,13 +378,30 @@ namespace v4l2 {
         frame_timestamp = timeval_to_timepoint(buf.timestamp);
       }
 
+      uint32_t sizeimage;
+      uint32_t dmafd;
+      switch (buf.type) {
+        case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+          dmafd = buf.m.fd;
+          sizeimage = buf.length;
+          break;
+        case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+          dmafd = planes[0].m.fd;
+          sizeimage = planes[0].length;
+          break;
+        default:
+          return platf::capture_e::error;
+      }
+
       auto img = (rkmpp::img_t *) img_out.get();
       img->bufferinfo = rkmpp::img_bufferinfo_t {
         .index = buf.index,
-        .dmafd = planes[0].m.fd,
-        .sizeimage = planes[0].length,
+        .buf_type = buf_type,
+        .dmafd = dmafd,
+        .sizeimage = sizeimage,
         .rga_buffer = buffers[buf.index].rga_buffer,
       };
+
       img->wants_unused_notify = true;
       img->frame_timestamp = frame_timestamp;
 
@@ -359,6 +437,7 @@ namespace v4l2 {
     std::chrono::nanoseconds delay;
 
     int v4lfd = -1;
+    v4l2_buf_type buf_type;
     int dmaheapfd = -1;
     std::vector<v4l2grab_buffer_t> buffers = {};
   };
@@ -402,7 +481,7 @@ namespace platf {
         continue;
       }
 
-      if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE_MPLANE)) {
+      if (!(cap.capabilities & (V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_CAPTURE_MPLANE))) {
         close(fd);
         continue;
       }

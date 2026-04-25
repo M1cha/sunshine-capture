@@ -67,13 +67,23 @@ namespace rkmpp {
     }};
     v4l2_buffer buf = {
       .index = bufferinfo_value.index,
-      .type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+      .type = bufferinfo_value.buf_type,
       .memory = V4L2_MEMORY_DMABUF,
-      .m = {
-        .planes = planes,
-      },
-      .length = ARRAY_SIZE(planes),
     };
+
+    switch (bufferinfo_value.buf_type) {
+      case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+        buf.m.fd = bufferinfo_value.dmafd;
+        buf.length = bufferinfo_value.sizeimage;
+        break;
+      case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+        buf.m.planes = planes;
+        buf.length = ARRAY_SIZE(planes);
+        break;
+      default:
+        BOOST_LOG(warning) << "can't requeue unsupported buffer type"sv;
+        return;
+    }
 
     ret = ioctl(v4lfd, VIDIOC_QBUF, &buf);
     if (ret != 0) {

@@ -9,10 +9,12 @@
 #include "src/platform/common.h"
 
 #include <im2d.hpp>
+#include <linux/videodev2.h>
 
 namespace rkmpp {
   struct img_bufferinfo_t {
     uint32_t index;
+    v4l2_buf_type buf_type;
     int dmafd;
     uint32_t sizeimage;
     rga_buffer_t rga_buffer;
