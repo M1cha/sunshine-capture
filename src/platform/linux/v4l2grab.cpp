@@ -315,7 +315,7 @@ namespace v4l2 {
     }
 
     int dummy_img(platf::img_t *img) override {
-      // TODO
+      // This is detected by bufferinfo having a value.
       return 0;
     }
 
