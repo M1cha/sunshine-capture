@@ -43,6 +43,10 @@ namespace v4l2 {
         return RK_FORMAT_BGR_888;
       case V4L2_PIX_FMT_NV12:
         return RK_FORMAT_YCbCr_420_SP;
+      case V4L2_PIX_FMT_YUYV:
+        return RK_FORMAT_YUYV_422;
+      case V4L2_PIX_FMT_YUV420:
+        return RK_FORMAT_YCbCr_420_P;
       default:
         return RK_FORMAT_UNKNOWN;
     }
