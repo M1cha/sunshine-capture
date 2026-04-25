@@ -26,7 +26,7 @@ using namespace std::literals;
 
 namespace v4l2 {
   struct v4l2grab_buffer_t {
-    uint32_t dmafd;
+    int dmafd;
     uint32_t sizeimage;
     rga_buffer_handle_t rga_buffer_handle;
     rga_buffer_t rga_buffer;
@@ -213,7 +213,7 @@ namespace v4l2 {
         rga_buffer_t rga_buffer = wrapbuffer_handle(rga_buffer_handle, width, height, rkformat);
 
         buffers.push_back(v4l2grab_buffer_t {
-          .dmafd = alloc_data.fd,
+          .dmafd = (int) alloc_data.fd,
           .sizeimage = sizeimage,
           .rga_buffer_handle = rga_buffer_handle,
           .rga_buffer = rga_buffer,
@@ -224,7 +224,7 @@ namespace v4l2 {
         v4l2_plane planes[] = {{
           .length = buffers[i].sizeimage,
           .m = {
-            .fd = (int) buffers[i].dmafd,
+            .fd = buffers[i].dmafd,
           },
         }};
         v4l2_buffer buf = {
@@ -370,7 +370,7 @@ namespace v4l2 {
       }
 
       uint32_t sizeimage;
-      uint32_t dmafd;
+      int dmafd;
       switch (buf.type) {
         case V4L2_BUF_TYPE_VIDEO_CAPTURE:
           dmafd = buf.m.fd;

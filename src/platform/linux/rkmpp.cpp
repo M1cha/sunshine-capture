@@ -62,7 +62,7 @@ namespace rkmpp {
     v4l2_plane planes[] = {{
       .length = bufferinfo_value.sizeimage,
       .m = {
-        .fd = (int) bufferinfo_value.dmafd,
+        .fd = bufferinfo_value.dmafd,
       },
     }};
     v4l2_buffer buf = {
